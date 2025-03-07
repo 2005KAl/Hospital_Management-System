@@ -1,0 +1,354 @@
+-- Connect to the database
+
+
+-- Drop existing tables if they exist
+DROP TABLE IF EXISTS Admission CASCADE;
+DROP TABLE IF EXISTS Patient CASCADE;
+DROP TABLE IF EXISTS AdmissionType CASCADE;
+DROP TABLE IF EXISTS Department CASCADE;
+DROP TABLE IF EXISTS Doctordetails CASCADE;
+DROP TABLE IF EXISTS Admini CASCADE;
+
+-- Create Tables
+CREATE TABLE Admini (
+    Loginid VARCHAR(50) PRIMARY KEY,
+    passid VARCHAR(50) NOT NULL
+);
+
+CREATE TABLE Doctordetails (
+    UserName VARCHAR(50) PRIMARY KEY REFERENCES Admini(Loginid),
+    DoctorName VARCHAR(100) NOT NULL,
+    Email VARCHAR(100)
+);
+
+CREATE TABLE Department (
+    DeptId SERIAL PRIMARY KEY,
+    DeptName VARCHAR(100) UNIQUE NOT NULL
+);
+
+CREATE TABLE AdmissionType (
+    AdmissionTypeID SERIAL PRIMARY KEY,
+    AdmissionTypeName VARCHAR(50) UNIQUE NOT NULL
+);
+
+CREATE TABLE Patient (
+    PatientId SERIAL PRIMARY KEY,
+    PatientName VARCHAR(100) NOT NULL,
+    Condition TEXT
+);
+
+CREATE TABLE Admission (
+    AdmissionID SERIAL PRIMARY KEY,
+    AdmissionType INTEGER REFERENCES AdmissionType(AdmissionTypeID),
+    Department INTEGER REFERENCES Department(DeptId),
+    Patient INTEGER REFERENCES Patient(PatientId),
+    Administrator VARCHAR(50) REFERENCES Doctordetails(UserName),
+    Condition TEXT,
+    AdmissionDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    DischargeDate TIMESTAMP,
+    Fee DECIMAL(10,2)
+);
+
+-- Insert Admin Users
+INSERT INTO Admini (Loginid, passid) VALUES
+    ('admin', 'admin123'),
+    ('dr.smith', 'doctor123'),
+    ('dr.jones', 'doctor456'),
+    ('dr.patel', 'doctor789'),
+    ('dr.chen', 'doctor101');
+
+-- Insert Doctors
+INSERT INTO Doctordetails (UserName, DoctorName, Email) VALUES
+    ('dr.smith', 'Dr. John Smith', 'smith@hospital.com'),
+    ('dr.jones', 'Dr. Sarah Jones', 'jones@hospital.com'),
+    ('dr.patel', 'Dr. Raj Patel', 'patel@hospital.com'),
+    ('dr.chen', 'Dr. Li Chen', 'chen@hospital.com');
+
+-- Insert Departments
+INSERT INTO Department (DeptName) VALUES
+    ('Cardiology'),
+    ('Orthopedics'),
+    ('Pediatrics'),
+    ('Neurology'),
+    ('Emergency'),
+    ('Internal Medicine'),
+    ('Surgery'),
+    ('Obstetrics & Gynecology'),
+    ('Psychiatry'),
+    ('Oncology');
+
+-- Insert Admission Types
+INSERT INTO AdmissionType (AdmissionTypeName) VALUES
+    ('Emergency'),
+    ('Planned Surgery'),
+    ('Regular Checkup'),
+    ('Intensive Care'),
+    ('Maternity'),
+    ('Observation');
+
+-- Insert Patients
+INSERT INTO Patient (PatientName, Condition) VALUES
+    ('James Wilson', 'Hypertension and mild chest pain'),
+    ('Maria Garcia', 'Fractured right femur'),
+    ('Sarah Johnson', 'Type 2 Diabetes'),
+    ('Michael Chang', 'Post-surgery recovery'),
+    ('Emily Brown', 'Acute appendicitis'),
+    ('Robert Taylor', 'Chronic back pain'),
+    ('Lisa Anderson', 'Migraine and vertigo'),
+    ('David Miller', 'Pneumonia'),
+    ('Sofia Martinez', 'Pregnancy - third trimester'),
+    ('William Turner', 'Cardiac arrhythmia'),
+    ('Emma Davis', 'Depression and anxiety'),
+    ('Thomas Wright', 'Lung cancer - Stage 2'),
+    ('Linda Kim', 'Rheumatoid arthritis'),
+    ('Richard Lee', 'Stroke recovery'),
+    ('Patricia Moore', 'High-risk pregnancy');
+
+-- Insert Admissions
+INSERT INTO Admission (AdmissionType, Department, Patient, Administrator, Condition, AdmissionDate, DischargeDate, Fee) VALUES
+    -- Active admissions
+    (1, 1, 1, 'dr.smith', 'Admitted for chest pain evaluation', 
+     CURRENT_TIMESTAMP - INTERVAL '2 days', NULL, 1500.00),
+    (2, 2, 2, 'dr.jones', 'Scheduled for femur surgery', 
+     CURRENT_TIMESTAMP - INTERVAL '1 day', NULL, 3500.00),
+    (1, 5, 5, 'dr.patel', 'Emergency appendectomy required', 
+     CURRENT_TIMESTAMP - INTERVAL '12 hours', NULL, 2500.00),
+    (4, 1, 10, 'dr.smith', 'Cardiac monitoring', 
+     CURRENT_TIMESTAMP - INTERVAL '3 days', NULL, 2800.00),
+    (5, 8, 15, 'dr.jones', 'Pre-eclampsia monitoring', 
+     CURRENT_TIMESTAMP - INTERVAL '1 day', NULL, 3200.00),
+
+    -- Past/discharged admissions
+    (3, 6, 3, 'dr.chen', 'Diabetes monitoring and medication adjustment', 
+     CURRENT_TIMESTAMP - INTERVAL '30 days', CURRENT_TIMESTAMP - INTERVAL '28 days', 800.00),
+    (2, 2, 4, 'dr.jones', 'Knee replacement surgery', 
+     CURRENT_TIMESTAMP - INTERVAL '15 days', CURRENT_TIMESTAMP - INTERVAL '10 days', 4500.00),
+    (3, 4, 7, 'dr.smith', 'Severe migraine evaluation', 
+     CURRENT_TIMESTAMP - INTERVAL '45 days', CURRENT_TIMESTAMP - INTERVAL '44 days', 1200.00),
+    (1, 5, 8, 'dr.patel', 'Severe pneumonia treatment', 
+     CURRENT_TIMESTAMP - INTERVAL '20 days', CURRENT_TIMESTAMP - INTERVAL '15 days', 3800.00),
+    (2, 7, 12, 'dr.chen', 'Tumor removal surgery', 
+     CURRENT_TIMESTAMP - INTERVAL '60 days', CURRENT_TIMESTAMP - INTERVAL '52 days', 6500.00),
+    (3, 9, 11, 'dr.jones', 'Mental health evaluation', 
+     CURRENT_TIMESTAMP - INTERVAL '10 days', CURRENT_TIMESTAMP - INTERVAL '9 days', 900.00),
+    (6, 3, 9, 'dr.patel', 'Routine pregnancy checkup', 
+     CURRENT_TIMESTAMP - INTERVAL '25 days', CURRENT_TIMESTAMP - INTERVAL '25 days', 400.00);
+
+-- Create useful views for common queries
+CREATE VIEW active_admissions AS
+SELECT 
+    a.AdmissionID,
+    p.PatientName,
+    d.DeptName,
+    at.AdmissionTypeName,
+    doc.DoctorName,
+    a.AdmissionDate,
+    a.Fee
+FROM Admission a
+JOIN Patient p ON a.Patient = p.PatientId
+JOIN Department d ON a.Department = d.DeptId
+JOIN AdmissionType at ON a.AdmissionType = at.AdmissionTypeID
+JOIN Doctordetails doc ON a.Administrator = doc.UserName
+WHERE a.DischargeDate IS NULL;
+
+CREATE VIEW department_statistics AS
+SELECT 
+    d.DeptName,
+    COUNT(CASE WHEN a.DischargeDate IS NULL THEN 1 END) as active_patients,
+    COUNT(*) as total_admissions,
+    COALESCE(SUM(a.Fee), 0) as total_revenue
+FROM Department d
+LEFT JOIN Admission a ON d.DeptId = a.Department
+GROUP BY d.DeptName;
+
+-- Create indexes for better performance
+CREATE INDEX idx_admission_patient ON Admission(Patient);
+CREATE INDEX idx_admission_department ON Admission(Department);
+CREATE INDEX idx_admission_date ON Admission(AdmissionDate);
+CREATE INDEX idx_patient_name ON Patient(PatientName);
+
+-- Check total patients
+SELECT COUNT(*) FROM Patient;
+
+-- Check active admissions
+SELECT * FROM active_admissions;
+
+-- Check department statistics
+SELECT * FROM department_statistics;
+
+-- Check doctors and their current patients
+SELECT 
+    d.DoctorName,
+    COUNT(CASE WHEN a.DischargeDate IS NULL THEN 1 END) as active_patients
+FROM Doctordetails d
+LEFT JOIN Admission a ON d.UserName = a.Administrator
+GROUP BY d.DoctorName;
+
+SELECT * FROM Patient;
+SELECT * FROM Department;
+-- Additional Departments
+INSERT INTO Department (DeptName) VALUES
+    ('Radiology'),
+    ('Dermatology'),
+    ('Endocrinology'),
+    ('Gastroenterology'),
+    ('Pulmonology'),
+    ('Nephrology'),
+    ('Urology'),
+    ('Physical Therapy'),
+    ('Dental'),
+    ('Ophthalmology');
+
+-- Additional Admission Types
+INSERT INTO AdmissionType (AdmissionTypeName) VALUES
+    ('Day Surgery'),
+    ('Rehabilitation'),
+    ('Chemotherapy'),
+    ('Diagnostic'),
+    ('Psychiatric Care'),
+    ('Palliative Care');
+
+-- Additional Doctors
+INSERT INTO Admini (Loginid, passid) VALUES
+    ('dr.wilson', 'doctor202'),
+    ('dr.kumar', 'doctor303'),
+    ('dr.zhang', 'doctor404'),
+    ('dr.rodriguez', 'doctor505'),
+    ('dr.thompson', 'doctor606'),
+    ('dr.white', 'doctor707'),
+    ('dr.brown', 'doctor808'),
+    ('dr.davis', 'doctor909');
+
+INSERT INTO Doctordetails (UserName, DoctorName, Email) VALUES
+    ('dr.wilson', 'Dr. Emma Wilson', 'wilson@hospital.com'),
+    ('dr.kumar', 'Dr. Arun Kumar', 'kumar@hospital.com'),
+    ('dr.zhang', 'Dr. Wei Zhang', 'zhang@hospital.com'),
+    ('dr.rodriguez', 'Dr. Carlos Rodriguez', 'rodriguez@hospital.com'),
+    ('dr.thompson', 'Dr. Mark Thompson', 'thompson@hospital.com'),
+    ('dr.white', 'Dr. Jessica White', 'white@hospital.com'),
+    ('dr.brown', 'Dr. Robert Brown', 'brown@hospital.com'),
+    ('dr.davis', 'Dr. Angela Davis', 'davis@hospital.com');
+
+-- Additional Patients with More Diverse Conditions
+INSERT INTO Patient (PatientName, Condition) VALUES
+    ('John Doe', 'Multiple sclerosis - early stage'),
+    ('Jane Smith', 'Breast cancer - Stage 1'),
+    ('Ahmed Hassan', 'Chronic kidney disease'),
+    ('Priya Patel', 'Gestational diabetes'),
+    ('Chen Wei', 'Severe asthma'),
+    ('Isabella Garcia', 'Epilepsy'),
+    ('Yuki Tanaka', 'Rheumatoid arthritis'),
+    ('Alex Johnson', 'Sports injury - torn ACL'),
+    ('Maria Santos', 'COVID-19 recovery'),
+    ('Kevin O''Brien', 'Parkinsons disease'),
+    ('Fatima Ali', 'Thyroid disorder'),
+    ('Lars Anderson', 'Hip replacement needed'),
+    ('Nina Petrova', 'Acute bronchitis'),
+    ('Mohammed Ahmed', 'Diabetes Type 1'),
+    ('Sophie Martin', 'Postpartum depression'),
+    ('Raj Sharma', 'Gastric ulcer'),
+    ('Anna Kowalski', 'Osteoporosis'),
+    ('Luis Morales', 'Heart valve disease'),
+    ('Aisha Abdullah', 'Endometriosis'),
+    ('Tom Wilson', 'Chronic lower back pain');
+
+-- Additional Admissions with Various Scenarios
+INSERT INTO Admission (AdmissionType, Department, Patient, Administrator, Condition, AdmissionDate, DischargeDate, Fee) VALUES
+    -- Emergency Cases
+    (1, 5, 16, 'dr.wilson', 'Severe abdominal pain - suspected appendicitis',
+     CURRENT_TIMESTAMP - INTERVAL '6 hours', NULL, 2800.00),
+    (1, 1, 18, 'dr.smith', 'Acute chest pain - possible heart attack',
+     CURRENT_TIMESTAMP - INTERVAL '12 hours', NULL, 3500.00),
+    
+    -- Planned Surgeries
+    (2, 7, 12, 'dr.thompson', 'Scheduled hip replacement surgery',
+     CURRENT_TIMESTAMP - INTERVAL '2 days', NULL, 8500.00),
+    (2, 2, 8, 'dr.jones', 'ACL reconstruction surgery',
+     CURRENT_TIMESTAMP - INTERVAL '1 day', NULL, 6500.00),
+    
+    -- Long-term Care
+    (4, 4, 3, 'dr.kumar', 'Kidney dialysis and monitoring',
+     CURRENT_TIMESTAMP - INTERVAL '15 days', NULL, 12000.00),
+    (6, 10, 17, 'dr.zhang', 'Osteoporosis treatment and monitoring',
+     CURRENT_TIMESTAMP - INTERVAL '10 days', NULL, 4500.00),
+    
+    -- Maternity Cases
+    (5, 8, 4, 'dr.white', 'High-risk pregnancy monitoring',
+     CURRENT_TIMESTAMP - INTERVAL '3 days', NULL, 5500.00),
+    (5, 8, 19, 'dr.davis', 'Scheduled C-section',
+     CURRENT_TIMESTAMP - INTERVAL '1 day', NULL, 6500.00),
+    
+    -- Recently Discharged
+    (3, 13, 5, 'dr.chen', 'Asthma exacerbation treatment',
+     CURRENT_TIMESTAMP - INTERVAL '5 days', CURRENT_TIMESTAMP - INTERVAL '2 days', 2200.00),
+    (2, 7, 16, 'dr.rodriguez', 'Gastric ulcer treatment',
+     CURRENT_TIMESTAMP - INTERVAL '8 days', CURRENT_TIMESTAMP - INTERVAL '4 days', 3800.00),
+    
+    -- Specialized Treatment
+    (9, 9, 11, 'dr.brown', 'Thyroid function monitoring',
+     CURRENT_TIMESTAMP - INTERVAL '4 days', NULL, 2800.00),
+    (8, 16, 20, 'dr.patel', 'Physical therapy for chronic back pain',
+     CURRENT_TIMESTAMP - INTERVAL '7 days', NULL, 1800.00),
+    
+    -- Diagnostic Admissions
+    (10, 11, 2, 'dr.wilson', 'Comprehensive cancer screening',
+     CURRENT_TIMESTAMP - INTERVAL '2 days', CURRENT_TIMESTAMP - INTERVAL '1 day', 4500.00),
+    (10, 14, 14, 'dr.kumar', 'Diabetes management evaluation',
+     CURRENT_TIMESTAMP - INTERVAL '3 days', CURRENT_TIMESTAMP - INTERVAL '2 days', 1800.00);
+
+-- Create a view for department occupancy rates
+CREATE OR REPLACE VIEW department_occupancy AS
+SELECT 
+    d.DeptName,
+    COUNT(CASE WHEN a.DischargeDate IS NULL THEN 1 END) as current_patients,
+    COUNT(*) as total_admissions,
+    ROUND(COUNT(CASE WHEN a.DischargeDate IS NULL THEN 1 END)::numeric / 
+          GREATEST(COUNT(*), 1) * 100, 2) as occupancy_rate
+FROM Department d
+LEFT JOIN Admission a ON d.DeptId = a.Department
+GROUP BY d.DeptName;
+
+-- Create a view for doctor workload
+CREATE OR REPLACE VIEW doctor_workload AS
+SELECT 
+    doc.DoctorName,
+    COUNT(CASE WHEN a.DischargeDate IS NULL THEN 1 END) as active_patients,
+    COUNT(*) as total_patients,
+    ROUND(AVG(a.Fee)::numeric, 2) as avg_patient_fee
+FROM Doctordetails doc
+LEFT JOIN Admission a ON doc.UserName = a.Administrator
+GROUP BY doc.DoctorName;
+
+-- Create a view for patient history
+CREATE OR REPLACE VIEW patient_history AS
+SELECT 
+    p.PatientName,
+    COUNT(a.AdmissionID) as total_admissions,
+    COUNT(CASE WHEN a.DischargeDate IS NULL THEN 1 END) as current_admissions,
+    ROUND(AVG(a.Fee)::numeric, 2) as avg_admission_cost,
+    MAX(a.AdmissionDate) as last_admission
+FROM Patient p
+LEFT JOIN Admission a ON p.PatientId = a.Patient
+GROUP BY p.PatientName;
+
+-- Useful queries for analysis
+-- Check department occupancy
+SELECT * FROM department_occupancy ORDER BY occupancy_rate DESC;
+
+-- Check doctor workload
+SELECT * FROM doctor_workload ORDER BY active_patients DESC;
+
+-- Check patient history
+SELECT * FROM patient_history ORDER BY total_admissions DESC;
+
+-- Check average length of stay by department
+SELECT 
+    d.DeptName,
+    ROUND(AVG(
+        EXTRACT(EPOCH FROM (COALESCE(a.DischargeDate, CURRENT_TIMESTAMP) - a.AdmissionDate))/86400
+    )::numeric, 1) as avg_stay_days
+FROM Department d
+JOIN Admission a ON d.DeptId = a.Department
+GROUP BY d.DeptName
+ORDER BY avg_stay_days DESC;
+SELECT * FROM Patient;

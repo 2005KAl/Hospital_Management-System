@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Patient Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h2 class="mb-1">{{ patient.patientname }}</h2>
+                            <p class="text-muted mb-0">Patient ID: {{ patient.patientid }}</p>
+                        </div>
+                        <div>
+                            <a href="{{ url_for('patients') }}" class="btn btn-outline-primary me-2">
+                                <i class="fas fa-arrow-left"></i> Back to Patients
+                            </a>
+                            <button class="btn btn-primary" onclick="editPatient({{ patient.patientid }})">
+                                <i class="fas fa-edit"></i> Edit Patient
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Current Status and Statistics -->
+    <div class="row mb-4">
+        <!-- Current Status -->
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Current Status</h5>
+                </div>
+                <div class="card-body">
+                    {% if current_admission %}
+                        {% set admission, dept, doctor, adm_type = current_admission %}
+                        <div class="alert alert-info">
+                            <h6 class="alert-heading">Currently Admitted</h6>
+                            <p class="mb-0">Department: {{ dept.deptname }}</p>
+                            <p class="mb-0">Doctor: {{ doctor.doctorname }}</p>
+                            <p class="mb-0">Admission Type: {{ adm_type.admissiontypename }}</p>
+                            <p class="mb-0">Condition: {{ admission.condition }}</p>
+                            <p class="mb-0">Admitted Since: {{ admission.admissiondate.strftime('%Y-%m-%d %H:%M') }}</p>
+                            <p class="mb-0">Current Fee: ${{ "%.2f"|format(admission.fee) }}</p>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-secondary">
+                            <h6 class="alert-heading">Not Currently Admitted</h6>
+                            <p class="mb-0">Patient is not currently admitted to the hospital.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Patient Statistics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <h3>{{ stats.total_admissions }}</h3>
+                                <p class="text-muted mb-0">Total Admissions</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <h3>${{ "%.2f"|format(stats.total_spent) }}</h3>
+                                <p class="text-muted mb-0">Total Spent</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <h3>{{ stats.avg_stay }}</h3>
+                                <p class="text-muted mb-0">Avg. Days/Stay</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admission History -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Admission History</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Admission Date</th>
+                                    <th>Discharge Date</th>
+                                    <th>Department</th>
+                                    <th>Doctor</th>
+                                    <th>Type</th>
+                                    <th>Condition</th>
+                                    <th>Fee</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for admission, dept, doctor, adm_type in admissions %}
+                                <tr>
+                                    <td>{{ admission.admissiondate.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    <td>
+                                        {% if admission.dischargedate %}
+                                            {{ admission.dischargedate.strftime('%Y-%m-%d %H:%M') }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ dept.deptname }}</td>
+                                    <td>{{ doctor.doctorname }}</td>
+                                    <td>{{ adm_type.admissiontypename }}</td>
+                                    <td>{{ admission.condition }}</td>
+                                    <td>${{ "%.2f"|format(admission.fee) }}</td>
+                                    <td>
+                                        {% if admission.dischargedate %}
+                                            <span class="badge bg-secondary">Discharged</span>
+                                        {% else %}
+                                            <span class="badge bg-success">Active</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Patient Modal -->
+<div class="modal fade" id="editPatientModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Patient</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editPatientForm">
+                    <div class="mb-3">
+                        <label for="patientName" class="form-label">Patient Name</label>
+                        <input type="text" class="form-control" id="patientName" value="{{ patient.patientname }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="patientCondition" class="form-label">Condition</label>
+                        <textarea class="form-control" id="patientCondition" rows="3">{{ patient.condition }}</textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="updatePatient()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function editPatient(patientId) {
+    const modal = new bootstrap.Modal(document.getElementById('editPatientModal'));
+    modal.show();
+}
+
+function updatePatient() {
+    const patientId = {{ patient.patientid }};
+    const data = {
+        name: document.getElementById('patientName').value,
+        condition: document.getElementById('patientCondition').value
+    };
+
+    fetch(`/api/patients/${patientId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.id) {
+            // Close modal and reload page
+            bootstrap.Modal.getInstance(document.getElementById('editPatientModal')).hide();
+            location.reload();
+        } else {
+            alert('Error updating patient: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Error updating patient: ' + error);
+    });
+}
+</script>
+{% endblock %} 

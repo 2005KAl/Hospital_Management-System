@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <div>
+                <h2>Admissions</h2>
+                <p class="text-muted">Manage patient admissions</p>
+            </div>
+            <button class="btn btn-primary" onclick="showNewAdmissionModal()">
+                <i class="fas fa-plus"></i> New Admission
+            </button>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 mb-2">
+                            <label class="form-label">Status</label>
+                            <select class="form-select" id="statusFilter">
+                                <option value="">All</option>
+                                <option value="active">Active</option>
+                                <option value="discharged">Discharged</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <label class="form-label">Department</label>
+                            <select class="form-select" id="departmentFilter">
+                                <option value="">All</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <label class="form-label">Doctor</label>
+                            <select class="form-select" id="doctorFilter">
+                                <option value="">All</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <label class="form-label">Date Range</label>
+                            <input type="date" class="form-control" id="dateFilter">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admissions Table -->
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped" id="admissionsTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Patient</th>
+                            <th>Department</th>
+                            <th>Doctor</th>
+                            <th>Type</th>
+                            <th>Admission Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Will be populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New Admission Modal -->
+<div class="modal fade" id="newAdmissionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">New Admission</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="newAdmissionForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Patient</label>
+                            <select class="form-select" id="patientSelect" required>
+                                <option value="">Select Patient</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Department</label>
+                            <select class="form-select" id="departmentSelect" required>
+                                <option value="">Select Department</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Doctor</label>
+                            <select class="form-select" id="doctorSelect" required>
+                                <option value="">Select Doctor</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Admission Type</label>
+                            <select class="form-select" id="admissionTypeSelect" required>
+                                <option value="">Select Type</option>
+                            </select>
+                        </div>
+                        <div class="col-12 mb-3">
+                            <label class="form-label">Condition</label>
+                            <textarea class="form-control" id="conditionText" rows="3" required></textarea>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Initial Fee</label>
+                            <input type="number" class="form-control" id="feeInput" step="0.01" required>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="createAdmission()">Create Admission</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadAdmissions();
+    loadFilters();
+});
+
+function loadAdmissions() {
+    const tbody = document.querySelector('#admissionsTable tbody');
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center">Loading admissions...</td></tr>';
+
+    fetch('/api/admissions')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(admissions => {
+            tbody.innerHTML = '';
+            
+            if (admissions.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center">No admissions found</td></tr>';
+                return;
+            }
+            
+            admissions.forEach(admission => {
+                const row = document.createElement('tr');
+                const statusClass = admission.discharge_date ? 'bg-secondary' : 'bg-success';
+                row.innerHTML = `
+                    <td>
+                        <a href="/admissions/${admission.id}" class="text-decoration-none">
+                            ${admission.id}
+                        </a>
+                    </td>
+                    <td>${admission.patient_name}</td>
+                    <td>${admission.department_name}</td>
+                    <td>${admission.doctor_name}</td>
+                    <td>${admission.admission_type}</td>
+                    <td>${new Date(admission.admission_date).toLocaleString()}</td>
+                    <td>
+                        <span class="badge ${statusClass}">
+                            ${admission.discharge_date ? 'Discharged' : 'Active'}
+                        </span>
+                    </td>
+                    <td>
+                        <a href="/admissions/${admission.id}" class="btn btn-info btn-sm">
+                            <i class="fas fa-eye"></i> View Details
+                        </a>
+                        ${!admission.discharge_date ? `
+                            <button class="btn btn-success btn-sm" onclick="dischargePatient(${admission.id})">
+                                <i class="fas fa-check"></i> Discharge
+                            </button>
+                        ` : ''}
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        })
+        .catch(error => {
+            console.error('Error loading admissions:', error);
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center text-danger">
+                        <div class="alert alert-danger mb-0">
+                            Error loading admissions: ${error.message}
+                            <br>
+                            <button class="btn btn-outline-danger btn-sm mt-2" onclick="loadAdmissions()">
+                                <i class="fas fa-sync"></i> Retry
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+}
+
+function loadFilters() {
+    // Load departments
+    fetch('/api/departments')
+        .then(response => response.json())
+        .then(departments => {
+            const select = document.getElementById('departmentFilter');
+            departments.forEach(dept => {
+                select.innerHTML += `<option value="${dept.id}">${dept.name}</option>`;
+            });
+        });
+
+    // Load doctors
+    fetch('/api/doctors')
+        .then(response => response.json())
+        .then(doctors => {
+            const select = document.getElementById('doctorFilter');
+            doctors.forEach(doc => {
+                select.innerHTML += `<option value="${doc.username}">${doc.name}</option>`;
+            });
+        });
+}
+
+function showNewAdmissionModal() {
+    // Load patients
+    fetch('/api/patients')
+        .then(response => response.json())
+        .then(patients => {
+            const select = document.getElementById('patientSelect');
+            select.innerHTML = '<option value="">Select Patient</option>';
+            patients.forEach(patient => {
+                select.innerHTML += `<option value="${patient.id}">${patient.name}</option>`;
+            });
+        });
+
+    // Load other dropdowns
+    loadFilters();
+
+    // Load admission types
+    fetch('/api/admission-types')
+        .then(response => response.json())
+        .then(types => {
+            const select = document.getElementById('admissionTypeSelect');
+            select.innerHTML = '<option value="">Select Type</option>';
+            types.forEach(type => {
+                select.innerHTML += `<option value="${type.id}">${type.name}</option>`;
+            });
+        });
+
+    const modal = new bootstrap.Modal(document.getElementById('newAdmissionModal'));
+    modal.show();
+}
+
+function createAdmission() {
+    const data = {
+        patient_id: document.getElementById('patientSelect').value,
+        department_id: document.getElementById('departmentSelect').value,
+        doctor_username: document.getElementById('doctorSelect').value,
+        admission_type_id: document.getElementById('admissionTypeSelect').value,
+        condition: document.getElementById('conditionText').value,
+        fee: document.getElementById('feeInput').value
+    };
+
+    fetch('/api/admissions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.id) {
+            bootstrap.Modal.getInstance(document.getElementById('newAdmissionModal')).hide();
+            loadAdmissions();
+        } else {
+            alert('Error creating admission: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Error creating admission: ' + error);
+    });
+}
+
+// Add event listeners for filters
+document.getElementById('statusFilter').addEventListener('change', loadAdmissions);
+document.getElementById('departmentFilter').addEventListener('change', loadAdmissions);
+document.getElementById('doctorFilter').addEventListener('change', loadAdmissions);
+document.getElementById('dateFilter').addEventListener('change', loadAdmissions);
+</script>
+{% endblock %} 

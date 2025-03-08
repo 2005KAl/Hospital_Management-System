@@ -1,0 +1,1064 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header Section -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>Hospital Dashboard</h2>
+            <p class="text-muted">Welcome back, {{ current_user.loginid }}</p>
+        </div>
+        <div class="d-flex align-items-center">
+            <button class="btn btn-outline-primary me-2" onclick="loadDashboardData()">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+            <a href="{{ url_for('logout') }}" class="btn btn-outline-danger">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistics Cards Row -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Total Patients</h5>
+                    <h2 class="display-4">{{ stats.patients.total }}</h2>
+                    <p class="mb-0">Active: {{ stats.patients.active }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Total Doctors</h5>
+                    <h2 class="display-4">{{ stats.doctors.total }}</h2>
+                    <p class="mb-0">Active: {{ stats.doctors.active }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Departments</h5>
+                    <h2 class="display-4">{{ stats.departments.total }}</h2>
+                    <p class="mb-0">With Patients: {{ stats.departments.with_patients }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Available Beds</h5>
+                    <h2 class="display-4">{{ stats.beds.total - stats.beds.occupied }}</h2>
+                    <p class="mb-0">Total: {{ stats.beds.total }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Admissions Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="card-title">Recent Admissions</h5>
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-outline-primary active" data-filter="all">All</button>
+                            <button type="button" class="btn btn-outline-primary" data-filter="today">Today</button>
+                            <button type="button" class="btn btn-outline-primary" data-filter="week">This Week</button>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table" id="recentAdmissionsTable">
+                            <thead>
+                                <tr>
+                                    <th>Patient</th>
+                                    <th>Department</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Recent admissions will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Department Statistics Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Department Statistics</h5>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Department</th>
+                                    <th>Total Admissions</th>
+                                    <th>Active Patients</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="departmentStatsBody">
+                                {% for dept in dept_stats %}
+                                <tr>
+                                    <td>{{ dept.deptname }}</td>
+                                    <td>{{ dept.total_admissions }}</td>
+                                    <td>{{ dept.active_patients }}</td>
+                                    <td>
+                                        <span class="badge {% if dept.active_patients > 10 %}bg-warning{% else %}bg-success{% endif %}">
+                                            {% if dept.active_patients > 10 %}High{% else %}Normal{% endif %}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Doctor Statistics Section -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Doctor Workload</h5>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Doctor Name</th>
+                                    <th>Department</th>
+                                    <th>Active Patients</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="doctorStatsBody">
+                                {% for doc in doctor_stats %}
+                                <tr>
+                                    <td>{{ doc.doctorname }}</td>
+                                    <td>{{ doc.department }}</td>
+                                    <td>{{ doc.active_patients }}</td>
+                                    <td>
+                                        <span class="badge {% if doc.active_patients > 10 %}bg-warning{% else %}bg-success{% endif %}">
+                                            {% if doc.active_patients > 10 %}High{% else %}Normal{% endif %}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modals -->
+{% include 'modals/admission_modal.html' %}
+{% include 'modals/department_modal.html' %}
+{% include 'modals/doctor_modal.html' %}
+{% include 'modals/reports_modal.html' %}
+{% include 'modals/medical_details_modal.html' %}
+{% include 'modals/department_report_modal.html' %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadDashboardData();
+    setInterval(loadDashboardData, 30000); // Refresh every 30 seconds
+    
+    // Add click handlers for filter buttons
+    document.querySelectorAll('[data-filter]').forEach(button => {
+        button.addEventListener('click', function() {
+            // Update active state of buttons
+            document.querySelectorAll('[data-filter]').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            this.classList.add('active');
+            
+            // Load filtered data
+            loadRecentAdmissions(this.dataset.filter);
+        });
+    });
+});
+
+function loadDashboardData() {
+    loadStatistics();
+    loadRecentAdmissions('all');
+    loadDepartmentStats();
+    loadDoctorStats();
+}
+
+function loadStatistics() {
+    // Load total patients
+    fetch('/api/statistics/patients')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('totalPatients').textContent = data.total;
+            document.getElementById('patientsTrend').textContent = 
+                `${data.trend}% from last month`;
+        });
+
+    // Load admissions
+    fetch('/api/statistics/admissions')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('activeAdmissions').textContent = data.active;
+            document.getElementById('admissionsTrend').textContent = 
+                `${data.trend}% from last week`;
+        });
+
+    // Load revenue
+    fetch('/api/statistics/revenue')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('totalRevenue').textContent = 
+                `$${data.monthly.toLocaleString()}`;
+            document.getElementById('revenueTrend').textContent = 
+                `${data.trend}% from last month`;
+        });
+
+    // Load bed capacity
+    fetch('/api/statistics/beds')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('availableBeds').textContent = data.available;
+            document.getElementById('totalBeds').textContent = data.total;
+        });
+
+    // Load doctor count
+    fetch('/api/statistics/doctors/count')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('totalDoctors').textContent = data.total;
+            document.getElementById('doctorsTrend').textContent = 
+                `${data.trend}% from last month`;
+        });
+}
+
+function loadRecentAdmissions(filter) {
+    const tbody = document.querySelector('#recentAdmissionsTable tbody');
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="5" class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </td>
+        </tr>
+    `;
+    
+    fetch(`/api/recent-admissions?filter=${filter}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            tbody.innerHTML = '';
+            
+            if (!Array.isArray(data) || data.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="text-center">
+                            <div class="alert alert-info mb-0">
+                                No admissions found
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            data.forEach(admission => {
+                const row = `
+                    <tr>
+                        <td>${admission.patient_name}</td>
+                        <td>${admission.department}</td>
+                        <td>${formatDate(admission.admission_date)}</td>
+                        <td>
+                            <span class="badge ${admission.status === 'Active' ? 'bg-success' : 'bg-secondary'}">
+                                ${admission.status}
+                            </span>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-info" onclick="showMedicalDetailsModal('${admission.id}')">
+                                <i class="fas fa-notes-medical"></i> Medical Details
+                            </button>
+                        </td>
+                    </tr>
+                `;
+                tbody.insertAdjacentHTML('beforeend', row);
+            });
+        })
+        .catch(error => {
+            console.error('Error loading recent admissions:', error);
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center">
+                        <div class="alert alert-danger mb-0">
+                            Error loading admissions
+                            <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="loadRecentAdmissions('${filter}')">
+                                Retry
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+}
+
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+}
+
+function loadDepartmentStats() {
+    fetch('/api/statistics/departments', {
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        if (response.redirected) {
+            window.location.href = response.url;
+            return;
+        }
+        if (!response.ok) {
+            if (response.status === 401) {
+                window.location.href = '/login';
+                return;
+            }
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (!data) return;
+        
+        const tbody = document.getElementById('departmentStatsBody');
+        if (!data || data.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center">
+                        <div class="alert alert-info mb-0">No departments found</div>
+                    </td>
+                </tr>`;
+            return;
+        }
+        
+        tbody.innerHTML = data.map(dept => `
+            <tr>
+                <td>${dept.name || dept.deptname}</td>
+                <td>${dept.total_admissions || 0}</td>
+                <td>${dept.active_patients || 0}</td>
+                <td>
+                    <span class="badge ${(dept.active_patients || 0) > 10 ? 'bg-warning' : 'bg-success'}">
+                        ${(dept.active_patients || 0) > 10 ? 'High' : 'Normal'}
+                    </span>
+                </td>
+            </tr>
+        `).join('');
+    })
+    .catch(error => {
+        console.error('Error loading department stats:', error);
+        document.getElementById('departmentStatsBody').innerHTML = `
+            <tr>
+                <td colspan="4" class="text-center">
+                    <div class="alert alert-danger mb-0">
+                        Error loading departments. Please ensure you're logged in.
+                        <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="loadDepartmentStats()">
+                            Retry
+                        </button>
+                    </div>
+                </td>
+            </tr>`;
+    });
+}
+
+function loadDoctorStats() {
+    fetch('/api/statistics/doctors', {
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        if (response.redirected) {
+            window.location.href = response.url;
+            return;
+        }
+        if (!response.ok) {
+            if (response.status === 401) {
+                window.location.href = '/login';
+                return;
+            }
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (!data) return;
+        
+        const tbody = document.getElementById('doctorStatsBody');
+        if (!data || data.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center">
+                        <div class="alert alert-info mb-0">No doctors found</div>
+                    </td>
+                </tr>`;
+            return;
+        }
+        
+        tbody.innerHTML = data.map(doctor => `
+            <tr>
+                <td>${doctor.name || doctor.doctorname}</td>
+                <td>${doctor.department || 'N/A'}</td>
+                <td>${doctor.active_patients || 0}</td>
+                <td>
+                    <span class="badge ${(doctor.active_patients || 0) > 10 ? 'bg-warning' : 'bg-success'}">
+                        ${(doctor.active_patients || 0) > 10 ? 'High' : 'Normal'}
+                    </span>
+                </td>
+            </tr>
+        `).join('');
+    })
+    .catch(error => {
+        console.error('Error loading doctor stats:', error);
+        document.getElementById('doctorStatsBody').innerHTML = `
+            <tr>
+                <td colspan="4" class="text-center">
+                    <div class="alert alert-danger mb-0">
+                        Error loading doctors. Please ensure you're logged in.
+                        <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="loadDoctorStats()">
+                            Retry
+                        </button>
+                    </div>
+                </td>
+            </tr>`;
+    });
+}
+
+function dischargePatient(id) {
+    if (confirm('Are you sure you want to discharge this patient?')) {
+        fetch(`/api/admissions/${id}/discharge`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                loadDashboardData();
+            } else {
+                alert('Error discharging patient: ' + data.error);
+            }
+        });
+    }
+}
+
+function showReportsModal() {
+    // Implement reports modal
+}
+
+function showAdmissionModal() {
+    // Load all necessary data before showing the modal
+    Promise.all([
+        fetch('/api/patients').then(res => res.json()),
+        fetch('/api/departments').then(res => res.json()),
+        fetch('/api/doctors').then(res => res.json()),
+        fetch('/api/admission-types').then(res => res.json())
+    ]).then(([patients, departments, doctors, admissionTypes]) => {
+        // Populate patient select
+        const patientSelect = document.getElementById('patientSelect');
+        patientSelect.innerHTML = '<option value="">Select Patient</option>' +
+            patients.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+
+        // Populate department select
+        const departmentSelect = document.getElementById('departmentSelect');
+        departmentSelect.innerHTML = '<option value="">Select Department</option>' +
+            departments.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+
+        // Populate doctor select
+        const doctorSelect = document.getElementById('doctorSelect');
+        doctorSelect.innerHTML = '<option value="">Select Doctor</option>' +
+            doctors.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+
+        // Populate admission type select
+        const admissionTypeSelect = document.getElementById('admissionTypeSelect');
+        admissionTypeSelect.innerHTML = '<option value="">Select Type</option>' +
+            admissionTypes.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+
+        // Show the modal
+        const modal = new bootstrap.Modal(document.getElementById('admissionModal'));
+        modal.show();
+    });
+}
+
+function showDepartmentModal() {
+    fetch('/api/statistics/departments', {
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/json'
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        if (response.redirected) {
+            window.location.href = response.url;
+            return;
+        }
+        if (!response.ok) {
+            if (response.status === 401) {
+                window.location.href = '/login';
+                return;
+            }
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(departments => {
+        if (!departments) return;
+        
+        const tbody = document.getElementById('departmentOverviewBody');
+        if (!departments || departments.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center">
+                        <div class="alert alert-info mb-0">No departments found</div>
+                    </td>
+                </tr>`;
+            return;
+        }
+
+        tbody.innerHTML = departments.map(dept => `
+            <tr>
+                <td>${dept.name || dept.deptname}</td>
+                <td>${dept.active_patients || 0}</td>
+                <td>
+                    <div class="progress" style="height: 20px;">
+                        <div class="progress-bar ${getProgressBarClass(dept.occupancy || 0)}" 
+                             role="progressbar" 
+                             style="width: ${dept.occupancy || 0}%">
+                            ${dept.occupancy || 0}%
+                        </div>
+                    </div>
+                </td>
+                <td>$${(dept.revenue || 0).toLocaleString()}</td>
+                <td>
+                    <span class="badge ${(dept.occupancy || 0) > 80 ? 'bg-danger' : 'bg-success'}">
+                        ${(dept.occupancy || 0) > 80 ? 'Full' : 'Available'}
+                    </span>
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-primary" 
+                            data-department-id="${dept.id}"
+                            onclick="generateDepartmentReport(${dept.id})">
+                        <i class="fas fa-file-alt"></i> Generate Report
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+
+        // Show the modal
+        const modal = new bootstrap.Modal(document.getElementById('departmentModal'));
+        modal.show();
+    })
+    .catch(error => {
+        console.error('Error loading department data:', error);
+        const tbody = document.getElementById('departmentOverviewBody');
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center">
+                    <div class="alert alert-danger mb-0">
+                        Error loading departments. Please ensure you're logged in.
+                        <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="showDepartmentModal()">
+                            Retry
+                        </button>
+                    </div>
+                </td>
+            </tr>`;
+        
+        // Still show the modal to display the error
+        const modal = new bootstrap.Modal(document.getElementById('departmentModal'));
+        modal.show();
+    });
+}
+
+// Helper function for progress bar classes
+function getProgressBarClass(occupancy) {
+    if (occupancy >= 80) return 'bg-danger';
+    if (occupancy >= 60) return 'bg-warning';
+    return 'bg-success';
+}
+
+// Function to update department
+function updateDepartment(id, data) {
+    return fetch(`/api/departments/${id}`, {
+        method: 'PUT',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify(data)
+    })
+    .then(response => {
+        if (response.redirected) {
+            window.location.href = response.url;
+            return;
+        }
+        if (!response.ok) {
+            if (response.status === 401) {
+                window.location.href = '/login';
+                return;
+            }
+            return response.text().then(text => {
+                try {
+                    const json = JSON.parse(text);
+                    throw new Error(json.error || 'Failed to update department');
+                } catch (e) {
+                    throw new Error('Failed to update department: Server returned an invalid response');
+                }
+            });
+        }
+        return response.json();
+    })
+    .then(result => {
+        if (!result) return;
+        if (result.error) {
+            throw new Error(result.error);
+        }
+        return result;
+    });
+}
+
+// Function to handle department form submission
+function handleDepartmentUpdate(event) {
+    event.preventDefault();
+    const form = event.target;
+    const departmentId = form.getAttribute('data-department-id');
+    
+    const formData = {
+        name: form.querySelector('[name="name"]').value,
+        capacity: parseInt(form.querySelector('[name="capacity"]').value, 10),
+        description: form.querySelector('[name="description"]').value
+    };
+
+    updateDepartment(departmentId, formData)
+        .then(() => {
+            // Close modal and refresh data
+            bootstrap.Modal.getInstance(document.getElementById('departmentModal')).hide();
+            loadDashboardData();
+            // Show success message
+            showAlert('success', 'Department updated successfully');
+        })
+        .catch(error => {
+            console.error('Error updating department:', error);
+            showAlert('danger', error.message || 'Failed to update department');
+        });
+}
+
+// Helper function to show alerts
+function showAlert(type, message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    document.querySelector('.container-fluid').insertAdjacentElement('afterbegin', alertDiv);
+    
+    // Auto dismiss after 5 seconds
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 5000);
+}
+
+function showDoctorModal() {
+    // Load doctor statistics
+    fetch('/api/statistics/doctors')
+        .then(response => response.json())
+        .then(doctors => {
+            const tbody = document.getElementById('doctorListBody');
+            tbody.innerHTML = doctors.map(doc => `
+                <tr>
+                    <td>${doc.name}</td>
+                    <td>${doc.department}</td>
+                    <td>${doc.email || 'N/A'}</td>
+                    <td>${doc.active_patients}</td>
+                    <td>
+                        <span class="badge ${doc.active_patients > 10 ? 'bg-warning' : 'bg-success'}">
+                            ${doc.active_patients > 10 ? 'Busy' : 'Available'}
+                        </span>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-info" onclick="viewDoctorSchedule('${doc.id}')">
+                            <i class="fas fa-calendar"></i>
+                        </button>
+                        <button class="btn btn-sm btn-primary" onclick="viewDoctorPerformance('${doc.id}')">
+                            <i class="fas fa-chart-line"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+
+            // Show the modal
+            const modal = new bootstrap.Modal(document.getElementById('doctorModal'));
+            modal.show();
+        });
+}
+
+function submitAdmission() {
+    const formData = {
+        patient_id: parseInt(document.getElementById('patientSelect').value),
+        department_id: parseInt(document.getElementById('departmentSelect').value),
+        doctor_id: document.getElementById('doctorSelect').value,
+        admission_type_id: parseInt(document.getElementById('admissionTypeSelect').value),
+        condition: document.getElementById('conditionText').value,
+        fee: parseFloat(document.getElementById('feeInput').value)
+    };
+
+    fetch('/api/admissions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.id) {
+            // Close the modal
+            bootstrap.Modal.getInstance(document.getElementById('admissionModal')).hide();
+            // Refresh dashboard data
+            loadDashboardData();
+            // Show success message
+            alert('Admission created successfully');
+        } else {
+            alert('Error creating admission: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Error creating admission: ' + error);
+    });
+}
+
+// Function to show medical details modal
+function showMedicalDetailsModal(admissionId) {
+    // Get existing medical details
+    fetch(`/api/admissions/${admissionId}/medical-details`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            const modal = new bootstrap.Modal(document.getElementById('medicalDetailsModal'));
+            document.getElementById('medicalDetailsForm').innerHTML = `
+                <input type="hidden" name="admission_id" value="${admissionId}">
+                <div class="mb-3">
+                    <label for="diagnosis" class="form-label">Diagnosis</label>
+                    <input type="text" class="form-control" id="diagnosis" name="diagnosis" 
+                           value="${data.diagnosis || ''}" required>
+                </div>
+                <div class="mb-3">
+                    <label for="symptoms" class="form-label">Symptoms</label>
+                    <textarea class="form-control" id="symptoms" name="symptoms" 
+                              rows="3" required>${data.symptoms || ''}</textarea>
+                </div>
+                <div class="mb-3">
+                    <label for="treatment" class="form-label">Treatment Plan</label>
+                    <textarea class="form-control" id="treatment" name="treatment" 
+                              rows="3" required>${data.treatment || ''}</textarea>
+                </div>
+                <div class="mb-3">
+                    <label for="medications" class="form-label">Medications</label>
+                    <textarea class="form-control" id="medications" name="medications" 
+                              rows="3">${data.medications || ''}</textarea>
+                </div>
+                <div class="mb-3">
+                    <label for="notes" class="form-label">Additional Notes</label>
+                    <textarea class="form-control" id="notes" name="notes" 
+                              rows="3">${data.notes || ''}</textarea>
+                </div>
+                <div class="mb-3">
+                    <label for="nextCheckup" class="form-label">Next Checkup Date</label>
+                    <input type="datetime-local" class="form-control" id="nextCheckup" 
+                           name="next_checkup" value="${data.next_checkup || ''}">
+                </div>
+                <div class="text-end">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            `;
+            modal.show();
+        })
+        .catch(error => {
+            console.error('Error loading medical details:', error);
+            showAlert('danger', 'Error loading medical details');
+        });
+}
+
+// Function to update medical details
+function updateMedicalDetails(event) {
+    event.preventDefault();
+    const form = event.target;
+    const admissionId = form.querySelector('[name="admission_id"]').value;
+    
+    const formData = {
+        diagnosis: form.querySelector('#diagnosis').value,
+        symptoms: form.querySelector('#symptoms').value,
+        treatment: form.querySelector('#treatment').value,
+        medications: form.querySelector('#medications').value,
+        notes: form.querySelector('#notes').value,
+        next_checkup: form.querySelector('#nextCheckup').value
+    };
+
+    fetch(`/api/admissions/${admissionId}/medical-details`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify(formData)
+    })
+    .then(response => {
+        if (!response.ok) {
+            if (response.status === 401) {
+                window.location.href = '/login';
+                return;
+            }
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(result => {
+        if (result.success) {
+            // Close modal and refresh data
+            bootstrap.Modal.getInstance(document.getElementById('medicalDetailsModal')).hide();
+            loadDashboardData();
+            showAlert('success', 'Medical details updated successfully');
+        } else {
+            throw new Error(result.error || 'Failed to update medical details');
+        }
+    })
+    .catch(error => {
+        console.error('Error updating medical details:', error);
+        showAlert('danger', error.message || 'Failed to update medical details');
+    });
+}
+
+// Function to generate department report
+function generateDepartmentReport(departmentId) {
+    // Show loading state
+    const reportBtn = document.querySelector(`button[data-department-id="${departmentId}"]`);
+    const originalContent = reportBtn.innerHTML;
+    reportBtn.innerHTML = `
+        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+        Generating...
+    `;
+    reportBtn.disabled = true;
+
+    fetch(`/api/departments/${departmentId}/report`, {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        if (response.redirected) {
+            window.location.href = response.url;
+            return;
+        }
+        if (!response.ok) {
+            if (response.status === 401) {
+                window.location.href = '/login';
+                return;
+            }
+            return response.text().then(text => {
+                try {
+                    const json = JSON.parse(text);
+                    throw new Error(json.error || 'Failed to generate report');
+                } catch (e) {
+                    throw new Error('Failed to generate report: Server returned an invalid response');
+                }
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (!data) return;
+        
+        // Create and show the report modal
+        const reportModal = document.getElementById('departmentReportModal');
+        const modalBody = reportModal.querySelector('.modal-body');
+        
+        modalBody.innerHTML = `
+            <div class="report-section mb-4">
+                <h6 class="fw-bold">Department Overview</h6>
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <tr>
+                            <th>Department Name</th>
+                            <td>${data.name}</td>
+                            <th>Total Staff</th>
+                            <td>${data.total_staff}</td>
+                        </tr>
+                        <tr>
+                            <th>Active Patients</th>
+                            <td>${data.active_patients}</td>
+                            <th>Bed Occupancy</th>
+                            <td>${data.occupancy}%</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="report-section mb-4">
+                <h6 class="fw-bold">Patient Statistics</h6>
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <tr>
+                            <th>Total Admissions</th>
+                            <td>${data.total_admissions}</td>
+                            <th>Average Stay Duration</th>
+                            <td>${data.avg_stay_duration} days</td>
+                        </tr>
+                        <tr>
+                            <th>Discharged Patients</th>
+                            <td>${data.discharged_patients}</td>
+                            <th>Current Patients</th>
+                            <td>${data.current_patients}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="report-section mb-4">
+                <h6 class="fw-bold">Financial Overview</h6>
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <tr>
+                            <th>Monthly Revenue</th>
+                            <td>$${data.monthly_revenue.toLocaleString()}</td>
+                            <th>Average Patient Cost</th>
+                            <td>$${data.avg_patient_cost.toLocaleString()}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="report-section">
+                <h6 class="fw-bold">Top Procedures</h6>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Procedure</th>
+                                <th>Count</th>
+                                <th>Success Rate</th>
+                                <th>Avg. Recovery Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.top_procedures.map(proc => `
+                                <tr>
+                                    <td>${proc.name}</td>
+                                    <td>${proc.count}</td>
+                                    <td>${proc.success_rate}%</td>
+                                    <td>${proc.avg_recovery_days} days</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="text-end mt-4">
+                <button type="button" class="btn btn-primary" onclick="downloadDepartmentReport(${departmentId})">
+                    <i class="fas fa-download"></i> Download Report
+                </button>
+            </div>
+        `;
+
+        // Show the modal
+        const modal = new bootstrap.Modal(reportModal);
+        modal.show();
+    })
+    .catch(error => {
+        console.error('Error generating department report:', error);
+        showAlert('danger', error.message || 'Failed to generate department report');
+    })
+    .finally(() => {
+        // Restore button state
+        reportBtn.innerHTML = originalContent;
+        reportBtn.disabled = false;
+    });
+}
+
+// Function to download department report
+function downloadDepartmentReport(departmentId) {
+    fetch(`/api/departments/${departmentId}/report/download`, {
+        headers: {
+            'Accept': 'application/pdf',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        if (!response.ok) throw new Error('Network response was not ok');
+        return response.blob();
+    })
+    .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `department_report_${departmentId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+    })
+    .catch(error => {
+        console.error('Error downloading report:', error);
+        showAlert('danger', 'Failed to download report');
+    });
+}
+</script>
+{% endblock %} 

@@ -1,0 +1,405 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h2 class="mb-1">Admission Details</h2>
+                            <p class="text-muted mb-0">Admission ID: {{ admission.admissionid }}</p>
+                        </div>
+                        <div>
+                            <a href="{{ url_for('admissions') }}" class="btn btn-outline-primary me-2">
+                                <i class="fas fa-arrow-left"></i> Back to Admissions
+                            </a>
+                            {% if not admission.dischargedate %}
+                            <button class="btn btn-success" onclick="dischargePatient({{ admission.admissionid }})">
+                                <i class="fas fa-check"></i> Discharge Patient
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Patient Information -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Patient Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="fw-bold">Name:</label>
+                        <p class="mb-1">
+                            <a href="{{ url_for('patient_details', patient_id=patient.patientid) }}">
+                                {{ patient.patientname }}
+                            </a>
+                        </p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="fw-bold">Condition on Admission:</label>
+                        <p class="mb-1">{{ admission.condition or 'Not specified' }}</p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="fw-bold">Current Condition:</label>
+                        <p class="mb-1">{{ patient.condition or 'Not specified' }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admission Details -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Admission Details</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="fw-bold">Status:</label>
+                            <p class="mb-1">
+                                <span class="badge {% if not admission.dischargedate %}bg-success{% else %}bg-secondary{% endif %}">
+                                    {{ 'Active' if not admission.dischargedate else 'Discharged' }}
+                                </span>
+                            </p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="fw-bold">Type:</label>
+                            <p class="mb-1">{{ admission_type.admissiontypename }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="fw-bold">Department:</label>
+                            <p class="mb-1">{{ department.deptname }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="fw-bold">Doctor:</label>
+                            <p class="mb-1">{{ doctor.doctorname }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="fw-bold">Admission Date:</label>
+                            <p class="mb-1">{{ admission.admissiondate.strftime('%Y-%m-%d %H:%M') }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="fw-bold">Discharge Date:</label>
+                            <p class="mb-1">
+                                {% if admission.dischargedate %}
+                                    {{ admission.dischargedate.strftime('%Y-%m-%d %H:%M') }}
+                                {% else %}
+                                    Not discharged
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="fw-bold">Length of Stay:</label>
+                            <p class="mb-1">{{ length_of_stay }} days</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="fw-bold">Fee:</label>
+                            <p class="mb-1">${{ "%.2f"|format(admission.fee) }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notes and Updates -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Medical Details</h5>
+                    <button class="btn btn-primary btn-sm" onclick="showAddDetailModal()">
+                        <i class="fas fa-plus"></i> Add Detail
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Date & Time</th>
+                                    <th>Temperature (°C)</th>
+                                    <th>Blood Pressure</th>
+                                    <th>Pulse Rate (bpm)</th>
+                                    <th>Notes</th>
+                                    <th>Recorded By</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detailsList">
+                                <!-- Will be populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notes and Updates -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Notes and Updates</h5>
+                </div>
+                <div class="card-body">
+                    <form id="addNoteForm" class="mb-4">
+                        <div class="mb-3">
+                            <label for="noteText" class="form-label">Add Note</label>
+                            <textarea class="form-control" id="noteText" rows="3"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Add Note</button>
+                    </form>
+                    <div id="notesList">
+                        <!-- Notes will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Discharge Confirmation Modal -->
+<div class="modal fade" id="dischargeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Discharge Patient</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="dischargeForm">
+                    <div class="mb-3">
+                        <label for="dischargeSummary" class="form-label">Discharge Summary</label>
+                        <textarea class="form-control" id="dischargeSummary" rows="3" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="finalFee" class="form-label">Final Fee</label>
+                        <input type="number" class="form-control" id="finalFee" value="{{ admission.fee }}" step="0.01" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" onclick="confirmDischarge()">Confirm Discharge</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Detail Modal -->
+<div class="modal fade" id="addDetailModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Medical Detail</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addDetailForm">
+                    <div class="mb-3">
+                        <label for="temperature" class="form-label">Temperature (°C)</label>
+                        <input type="number" class="form-control" id="temperature" step="0.1">
+                    </div>
+                    <div class="mb-3">
+                        <label for="bloodPressure" class="form-label">Blood Pressure</label>
+                        <input type="text" class="form-control" id="bloodPressure" placeholder="e.g., 120/80">
+                    </div>
+                    <div class="mb-3">
+                        <label for="pulseRate" class="form-label">Pulse Rate (bpm)</label>
+                        <input type="number" class="form-control" id="pulseRate">
+                    </div>
+                    <div class="mb-3">
+                        <label for="detailNotes" class="form-label">Notes</label>
+                        <textarea class="form-control" id="detailNotes" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="addDetail()">Save Detail</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function dischargePatient(admissionId) {
+    const modal = new bootstrap.Modal(document.getElementById('dischargeModal'));
+    modal.show();
+}
+
+function confirmDischarge() {
+    const admissionId = {{ admission.admissionid }};
+    const summary = document.getElementById('dischargeSummary').value;
+    const finalFee = document.getElementById('finalFee').value;
+
+    fetch(`/api/admissions/${admissionId}/discharge`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            summary: summary,
+            fee: finalFee
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error discharging patient: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Error discharging patient: ' + error);
+    });
+}
+
+// Add note functionality
+document.getElementById('addNoteForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const noteText = document.getElementById('noteText').value;
+    const admissionId = {{ admission.admissionid }};
+
+    fetch(`/api/admissions/${admissionId}/notes`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            note: noteText
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            loadNotes();
+            document.getElementById('noteText').value = '';
+        } else {
+            alert('Error adding note: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Error adding note: ' + error);
+    });
+});
+
+function loadNotes() {
+    const admissionId = {{ admission.admissionid }};
+    fetch(`/api/admissions/${admissionId}/notes`)
+        .then(response => response.json())
+        .then(notes => {
+            const notesList = document.getElementById('notesList');
+            notesList.innerHTML = notes.map(note => `
+                <div class="card mb-2">
+                    <div class="card-body">
+                        <p class="mb-1">${note.text}</p>
+                        <small class="text-muted">
+                            By ${note.author} on ${new Date(note.timestamp).toLocaleString()}
+                        </small>
+                    </div>
+                </div>
+            `).join('');
+        })
+        .catch(error => {
+            console.error('Error loading notes:', error);
+        });
+}
+
+function showAddDetailModal() {
+    const modal = new bootstrap.Modal(document.getElementById('addDetailModal'));
+    modal.show();
+}
+
+function addDetail() {
+    const data = {
+        temperature: document.getElementById('temperature').value || null,
+        blood_pressure: document.getElementById('bloodPressure').value || null,
+        pulse_rate: document.getElementById('pulseRate').value || null,
+        notes: document.getElementById('detailNotes').value || null
+    };
+
+    fetch(`/api/admissions/{{ admission.admissionid }}/details`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.id) {
+            bootstrap.Modal.getInstance(document.getElementById('addDetailModal')).hide();
+            loadDetails();
+            // Clear form
+            document.getElementById('temperature').value = '';
+            document.getElementById('bloodPressure').value = '';
+            document.getElementById('pulseRate').value = '';
+            document.getElementById('detailNotes').value = '';
+        } else {
+            alert('Error adding detail: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Error adding detail: ' + error);
+    });
+}
+
+function loadDetails() {
+    fetch(`/api/admissions/{{ admission.admissionid }}/details`)
+        .then(response => response.json())
+        .then(details => {
+            const tbody = document.getElementById('detailsList');
+            tbody.innerHTML = '';
+            
+            if (details.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center">No details recorded yet</td></tr>';
+                return;
+            }
+            
+            details.forEach(detail => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${new Date(detail.timestamp).toLocaleString()}</td>
+                    <td>${detail.temperature !== null ? detail.temperature + ' °C' : '-'}</td>
+                    <td>${detail.blood_pressure || '-'}</td>
+                    <td>${detail.pulse_rate !== null ? detail.pulse_rate + ' bpm' : '-'}</td>
+                    <td>${detail.notes || '-'}</td>
+                    <td>${detail.recorded_by ? detail.recorded_by.name : '-'}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        })
+        .catch(error => {
+            console.error('Error loading details:', error);
+            document.getElementById('detailsList').innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center text-danger">
+                        Error loading details: ${error.message}
+                    </td>
+                </tr>
+            `;
+        });
+}
+
+// Load details on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadDetails();
+    loadNotes();
+});
+</script>
+{% endblock %} 

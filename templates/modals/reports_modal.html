@@ -1,0 +1,169 @@
+<!-- Reports Modal -->
+<div class="modal fade" id="reportsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Generate Reports</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <label class="form-label">Report Type</label>
+                        <select class="form-select" id="reportType">
+                            <option value="">Select Report Type</option>
+                            <option value="patient">Patient Statistics</option>
+                            <option value="department">Department Performance</option>
+                            <option value="doctor">Doctor Performance</option>
+                            <option value="financial">Financial Report</option>
+                            <option value="occupancy">Occupancy Report</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Date Range</label>
+                        <select class="form-select" id="reportRange">
+                            <option value="today">Today</option>
+                            <option value="week">This Week</option>
+                            <option value="month">This Month</option>
+                            <option value="quarter">This Quarter</option>
+                            <option value="year">This Year</option>
+                            <option value="custom">Custom Range</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Format</label>
+                        <select class="form-select" id="reportFormat">
+                            <option value="pdf">PDF</option>
+                            <option value="excel">Excel</option>
+                            <option value="csv">CSV</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Custom Date Range (initially hidden) -->
+                <div class="row mb-4" id="customDateRange" style="display: none;">
+                    <div class="col-md-6">
+                        <label class="form-label">Start Date</label>
+                        <input type="date" class="form-control" id="reportStartDate">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">End Date</label>
+                        <input type="date" class="form-control" id="reportEndDate">
+                    </div>
+                </div>
+
+                <!-- Report Options -->
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h6 class="card-title">Report Options</h6>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="includeCharts" checked>
+                            <label class="form-check-label" for="includeCharts">
+                                Include Charts and Graphs
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="includeSummary" checked>
+                            <label class="form-check-label" for="includeSummary">
+                                Include Executive Summary
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="includeDetails">
+                            <label class="form-check-label" for="includeDetails">
+                                Include Detailed Records
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Report Preview -->
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="card-title">Report Preview</h6>
+                        <div id="reportPreview" class="border p-3 bg-light">
+                            <p class="text-muted text-center">Select report type to see preview</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="generateReport()">
+                    <i class="fas fa-file-download"></i> Generate Report
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('reportRange').addEventListener('change', function() {
+    const customRange = document.getElementById('customDateRange');
+    customRange.style.display = this.value === 'custom' ? 'flex' : 'none';
+});
+
+document.getElementById('reportType').addEventListener('change', function() {
+    updateReportPreview();
+});
+
+function updateReportPreview() {
+    const reportType = document.getElementById('reportType').value;
+    const preview = document.getElementById('reportPreview');
+    
+    if (!reportType) {
+        preview.innerHTML = '<p class="text-muted text-center">Select report type to see preview</p>';
+        return;
+    }
+
+    // Show loading state
+    preview.innerHTML = '<p class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading preview...</p>';
+
+    // Fetch report preview from server
+    fetch(`/api/reports/preview?type=${reportType}`)
+        .then(response => response.json())
+        .then(data => {
+            preview.innerHTML = data.preview;
+        })
+        .catch(error => {
+            preview.innerHTML = '<p class="text-danger text-center">Error loading preview</p>';
+        });
+}
+
+function generateReport() {
+    const reportData = {
+        type: document.getElementById('reportType').value,
+        range: document.getElementById('reportRange').value,
+        format: document.getElementById('reportFormat').value,
+        startDate: document.getElementById('reportStartDate').value,
+        endDate: document.getElementById('reportEndDate').value,
+        options: {
+            includeCharts: document.getElementById('includeCharts').checked,
+            includeSummary: document.getElementById('includeSummary').checked,
+            includeDetails: document.getElementById('includeDetails').checked
+        }
+    };
+
+    fetch('/api/reports/generate', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(reportData)
+    })
+    .then(response => response.blob())
+    .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `hospital_report_${new Date().toISOString().split('T')[0]}.${reportData.format}`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+    })
+    .catch(error => {
+        alert('Error generating report: ' + error);
+    });
+}
+</script> 
